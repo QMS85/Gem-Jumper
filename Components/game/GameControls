@@ -1,0 +1,46 @@
+import React from 'react';
+import { ChevronLeft, ChevronRight, ArrowUp } from 'lucide-react';
+import { cn } from '@/lib/utils';
+
+export default function GameControls() {
+  const handleControl = (action, active) => {
+    const event = new CustomEvent('touchControl', {
+      detail: { left: false, right: false, jump: false, [action]: active }
+    });
+    window.dispatchEvent(event);
+  };
+
+  const ControlButton = ({ icon: Icon, action, position }) => (
+    <button
+      onTouchStart={() => handleControl(action, true)}
+      onTouchEnd={() => handleControl(action, false)}
+      onMouseDown={() => handleControl(action, true)}
+      onMouseUp={() => handleControl(action, false)}
+      onMouseLeave={() => handleControl(action, false)}
+      className={cn(
+        "w-16 h-16 rounded-full bg-white/90 backdrop-blur-sm shadow-lg",
+        "flex items-center justify-center",
+        "active:scale-95 transition-all",
+        "border-2 border-gray-200",
+        position
+      )}
+    >
+      <Icon className="w-8 h-8 text-gray-700" />
+    </button>
+  );
+
+  return (
+    <div className="fixed bottom-8 left-0 right-0 px-8 pointer-events-none z-50">
+      <div className="max-w-5xl mx-auto flex justify-between items-end pointer-events-auto">
+        {/* Left/Right Controls */}
+        <div className="flex gap-4">
+          <ControlButton icon={ChevronLeft} action="left" />
+          <ControlButton icon={ChevronRight} action="right" />
+        </div>
+
+        {/* Jump Control */}
+        <ControlButton icon={ArrowUp} action="jump" />
+      </div>
+    </div>
+  );
+}
