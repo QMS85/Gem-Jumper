@@ -1,0 +1,434 @@
+import React, { useRef, useEffect, useState } from 'react';
+
+export default function GameCanvas({ 
+  gameState, 
+  level, 
+  lives,
+  onScoreChange, 
+  onLivesChange,
+  onGemsChange,
+  onLevelComplete,
+  onGameOver 
+}) {
+  const canvasRef = useRef(null);
+  const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
+  const gameLoopRef = useRef(null);
+  const gameDataRef = useRef({
+    player: null,
+    platforms: [],
+    gems: [],
+    enemies: [],
+    score: 0,
+    gemsCollected: 0,
+    keys: {},
+    touchControls: { left: false, right: false, jump: false }
+  });
+
+  // Initialize game
+  useEffect(() => {
+    const updateDimensions = () => {
+      const container = canvasRef.current?.parentElement;
+      if (container) {
+        const width = Math.min(container.clientWidth, 1200);
+        const height = Math.min(window.innerHeight * 0.7, 600);
+        setDimensions({ width, height });
+      }
+    };
+
+    updateDimensions();
+    window.addEventListener('resize', updateDimensions);
+    return () => window.removeEventListener('resize', updateDimensions);
+  }, []);
+
+  // Initialize level
+  useEffect(() => {
+    if (gameState !== 'playing') return;
+
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    const game = gameDataRef.current;
+
+    // Clear previous level
+    game.score = 0;
+    game.gemsCollected = 0;
+    onScoreChange(0);
+    onGemsChange(0);
+
+    // Player
+    game.player = {
+      x: 50,
+      y: dimensions.height - 150,
+      width: 32,
+      height: 32,
+      velocityX: 0,
+      velocityY: 0,
+      speed: 5,
+      jumpPower: 12,
+      gravity: 0.5,
+      onGround: false,
+      color: '#ff4444'
+    };
+
+    // Level designs
+    const levels = {
+      1: {
+        platforms: [
+          { x: 0, y: dimensions.height - 50, width: dimensions.width, height: 50 }, // Ground
+          { x: 150, y: dimensions.height - 150, width: 120, height: 20 },
+          { x: 350, y: dimensions.height - 250, width: 120, height: 20 },
+          { x: 550, y: dimensions.height - 200, width: 120, height: 20 },
+          { x: dimensions.width - 200, y: dimensions.height - 150, width: 150, height: 20 }
+        ],
+        gems: [
+          { x: 200, y: dimensions.height - 200, collected: false },
+          { x: 400, y: dimensions.height - 300, collected: false },
+          { x: 600, y: dimensions.height - 250, collected: false },
+          { x: dimensions.width - 120, y: dimensions.height - 200, collected: false }
+        ],
+        enemies: [
+          { x: 300, y: dimensions.height - 70, width: 30, height: 30, velocityX: 2, range: 200, startX: 300 },
+          { x: 600, y: dimensions.height - 70, width: 30, height: 30, velocityX: -2, range: 150, startX: 600 }
+        ]
+      },
+      2: {
+        platforms: [
+          { x: 0, y: dimensions.height - 50, width: 200, height: 50 },
+          { x: dimensions.width - 200, y: dimensions.height - 50, width: 200, height: 50 },
+          { x: 100, y: dimensions.height - 150, width: 100, height: 20 },
+          { x: 300, y: dimensions.height - 200, width: 100, height: 20 },
+          { x: 500, y: dimensions.height - 280, width: 100, height: 20 },
+          { x: 700, y: dimensions.height - 200, width: 100, height: 20 },
+          { x: dimensions.width - 250, y: dimensions.height - 150, width: 100, height: 20 }
+        ],
+        gems: [
+          { x: 150, y: dimensions.height - 200, collected: false },
+          { x: 350, y: dimensions.height - 250, collected: false },
+          { x: 550, y: dimensions.height - 330, collected: false },
+          { x: 750, y: dimensions.height - 250, collected: false },
+          { x: dimensions.width - 200, y: dimensions.height - 200, collected: false }
+        ],
+        enemies: [
+          { x: 250, y: dimensions.height - 70, width: 30, height: 30, velocityX: 2.5, range: 180, startX: 250 },
+          { x: 450, y: dimensions.height - 70, width: 30, height: 30, velocityX: -2.5, range: 180, startX: 450 },
+          { x: 650, y: dimensions.height - 70, width: 30, height: 30, velocityX: 3, range: 200, startX: 650 }
+        ]
+      },
+      3: {
+        platforms: [
+          { x: 0, y: dimensions.height - 50, width: 150, height: 50 },
+          { x: dimensions.width - 150, y: dimensions.height - 50, width: 150, height: 50 },
+          { x: 80, y: dimensions.height - 140, width: 80, height: 20 },
+          { x: 220, y: dimensions.height - 230, width: 80, height: 20 },
+          { x: 360, y: dimensions.height - 320, width: 80, height: 20 },
+          { x: 500, y: dimensions.height - 380, width: 80, height: 20 },
+          { x: 640, y: dimensions.height - 320, width: 80, height: 20 },
+          { x: 780, y: dimensions.height - 230, width: 80, height: 20 },
+          { x: dimensions.width - 180, y: dimensions.height - 140, width: 80, height: 20 }
+        ],
+        gems: [
+          { x: 120, y: dimensions.height - 190, collected: false },
+          { x: 260, y: dimensions.height - 280, collected: false },
+          { x: 400, y: dimensions.height - 370, collected: false },
+          { x: 540, y: dimensions.height - 430, collected: false },
+          { x: 680, y: dimensions.height - 370, collected: false },
+          { x: 820, y: dimensions.height - 280, collected: false },
+          { x: dimensions.width - 140, y: dimensions.height - 190, collected: false }
+        ],
+        enemies: [
+          { x: 200, y: dimensions.height - 70, width: 30, height: 30, velocityX: 3, range: 150, startX: 200 },
+          { x: 400, y: dimensions.height - 70, width: 30, height: 30, velocityX: -3, range: 150, startX: 400 },
+          { x: 600, y: dimensions.height - 70, width: 30, height: 30, velocityX: 3, range: 150, startX: 600 },
+          { x: 800, y: dimensions.height - 70, width: 30, height: 30, velocityX: -3, range: 150, startX: 800 }
+        ]
+      }
+    };
+
+    const levelData = levels[level];
+    game.platforms = levelData.platforms.map(p => ({ ...p, color: '#2d5016' }));
+    game.gems = levelData.gems;
+    game.enemies = levelData.enemies.map(e => ({ ...e, color: '#ff0000' }));
+
+  }, [level, gameState, dimensions]);
+
+  // Keyboard controls
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      const game = gameDataRef.current;
+      game.keys[e.key] = true;
+      
+      if (e.key === ' ' || e.key === 'ArrowUp') {
+        e.preventDefault();
+      }
+    };
+
+    const handleKeyUp = (e) => {
+      const game = gameDataRef.current;
+      game.keys[e.key] = false;
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, []);
+
+  // Touch controls handler
+  useEffect(() => {
+    const handleTouchControl = (e) => {
+      gameDataRef.current.touchControls = e.detail;
+    };
+
+    window.addEventListener('touchControl', handleTouchControl);
+    return () => window.removeEventListener('touchControl', handleTouchControl);
+  }, []);
+
+  // Game loop
+  useEffect(() => {
+    if (gameState !== 'playing') {
+      if (gameLoopRef.current) {
+        cancelAnimationFrame(gameLoopRef.current);
+      }
+      return;
+    }
+
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    const game = gameDataRef.current;
+
+    const gameLoop = () => {
+      // Clear canvas
+      ctx.fillStyle = '#87CEEB';
+      ctx.fillRect(0, 0, dimensions.width, dimensions.height);
+
+      // Draw clouds
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+      ctx.beginPath();
+      ctx.arc(100, 80, 30, 0, Math.PI * 2);
+      ctx.arc(130, 80, 40, 0, Math.PI * 2);
+      ctx.arc(160, 80, 30, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.arc(dimensions.width - 200, 120, 35, 0, Math.PI * 2);
+      ctx.arc(dimensions.width - 170, 120, 45, 0, Math.PI * 2);
+      ctx.arc(dimensions.width - 140, 120, 35, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Update player
+      const player = game.player;
+      const keys = game.keys;
+      const touch = game.touchControls;
+
+      // Movement
+      if (keys['ArrowLeft'] || keys['a'] || touch.left) {
+        player.velocityX = -player.speed;
+      } else if (keys['ArrowRight'] || keys['d'] || touch.right) {
+        player.velocityX = player.speed;
+      } else {
+        player.velocityX *= 0.8;
+      }
+
+      // Jump
+      if ((keys[' '] || keys['ArrowUp'] || keys['w'] || touch.jump) && player.onGround) {
+        player.velocityY = -player.jumpPower;
+        player.onGround = false;
+      }
+
+      // Apply gravity
+      player.velocityY += player.gravity;
+      player.x += player.velocityX;
+      player.y += player.velocityY;
+
+      // Boundary check
+      if (player.x < 0) player.x = 0;
+      if (player.x + player.width > dimensions.width) player.x = dimensions.width - player.width;
+
+      // Platform collision
+      player.onGround = false;
+      game.platforms.forEach(platform => {
+        if (
+          player.x < platform.x + platform.width &&
+          player.x + player.width > platform.x &&
+          player.y + player.height > platform.y &&
+          player.y + player.height < platform.y + platform.height &&
+          player.velocityY > 0
+        ) {
+          player.y = platform.y - player.height;
+          player.velocityY = 0;
+          player.onGround = true;
+        }
+      });
+
+      // Gem collection
+      game.gems.forEach(gem => {
+        if (!gem.collected) {
+          const dist = Math.hypot(player.x + player.width / 2 - gem.x, player.y + player.height / 2 - gem.y);
+          if (dist < 25) {
+            gem.collected = true;
+            game.score += 100;
+            game.gemsCollected++;
+            onScoreChange(game.score);
+            onGemsChange(game.gemsCollected);
+          }
+        }
+      });
+
+      // Update enemies
+      game.enemies.forEach(enemy => {
+        enemy.x += enemy.velocityX;
+        
+        // Patrol range
+        if (Math.abs(enemy.x - enemy.startX) > enemy.range) {
+          enemy.velocityX *= -1;
+        }
+
+        // Enemy collision
+        if (
+          player.x < enemy.x + enemy.width &&
+          player.x + player.width > enemy.x &&
+          player.y < enemy.y + enemy.height &&
+          player.y + player.height > enemy.y
+        ) {
+          // Reset player position
+          player.x = 50;
+          player.y = dimensions.height - 150;
+          player.velocityX = 0;
+          player.velocityY = 0;
+          
+          const newLives = lives - 1;
+          onLivesChange(newLives);
+          
+          if (newLives <= 0) {
+            onGameOver();
+            return;
+          }
+        }
+      });
+
+      // Fall off map
+      if (player.y > dimensions.height) {
+        player.x = 50;
+        player.y = dimensions.height - 150;
+        player.velocityX = 0;
+        player.velocityY = 0;
+        
+        const newLives = lives - 1;
+        onLivesChange(newLives);
+        
+        if (newLives <= 0) {
+          onGameOver();
+          return;
+        }
+      }
+
+      // Level complete
+      if (game.gems.every(gem => gem.collected)) {
+        onLevelComplete();
+        return;
+      }
+
+      // Draw platforms
+      game.platforms.forEach(platform => {
+        ctx.fillStyle = platform.color;
+        ctx.fillRect(platform.x, platform.y, platform.width, platform.height);
+        
+        // Platform highlight
+        ctx.fillStyle = 'rgba(70, 150, 40, 0.5)';
+        ctx.fillRect(platform.x, platform.y, platform.width, 5);
+      });
+
+      // Draw gems
+      game.gems.forEach(gem => {
+        if (!gem.collected) {
+          const time = Date.now() / 200;
+          const float = Math.sin(time) * 5;
+          
+          ctx.save();
+          ctx.translate(gem.x, gem.y + float);
+          ctx.rotate(time / 2);
+          
+          // Diamond shape
+          ctx.fillStyle = '#FFD700';
+          ctx.beginPath();
+          ctx.moveTo(0, -10);
+          ctx.lineTo(10, 0);
+          ctx.lineTo(0, 10);
+          ctx.lineTo(-10, 0);
+          ctx.closePath();
+          ctx.fill();
+          
+          // Shine
+          ctx.fillStyle = '#FFF';
+          ctx.beginPath();
+          ctx.moveTo(-3, -5);
+          ctx.lineTo(-1, -3);
+          ctx.lineTo(-3, -1);
+          ctx.closePath();
+          ctx.fill();
+          
+          ctx.restore();
+        }
+      });
+
+      // Draw enemies
+      game.enemies.forEach(enemy => {
+        // Body
+        ctx.fillStyle = enemy.color;
+        ctx.fillRect(enemy.x, enemy.y, enemy.width, enemy.height);
+        
+        // Eyes
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(enemy.x + 6, enemy.y + 8, 8, 8);
+        ctx.fillRect(enemy.x + 16, enemy.y + 8, 8, 8);
+        
+        ctx.fillStyle = '#000';
+        ctx.fillRect(enemy.x + 9, enemy.y + 11, 3, 3);
+        ctx.fillRect(enemy.x + 19, enemy.y + 11, 3, 3);
+      });
+
+      // Draw player
+      ctx.fillStyle = player.color;
+      ctx.fillRect(player.x, player.y, player.width, player.height);
+      
+      // Player face
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(player.x + 6, player.y + 10, 8, 8);
+      ctx.fillRect(player.x + 18, player.y + 10, 8, 8);
+      
+      ctx.fillStyle = '#000';
+      ctx.fillRect(player.x + 9, player.y + 13, 3, 3);
+      ctx.fillRect(player.x + 21, player.y + 13, 3, 3);
+      
+      // Smile
+      ctx.strokeStyle = '#000';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(player.x + 16, player.y + 20, 6, 0, Math.PI);
+      ctx.stroke();
+
+      gameLoopRef.current = requestAnimationFrame(gameLoop);
+    };
+
+    gameLoop();
+
+    return () => {
+      if (gameLoopRef.current) {
+        cancelAnimationFrame(gameLoopRef.current);
+      }
+    };
+  }, [gameState, lives, dimensions, onScoreChange, onLivesChange, onGemsChange, onLevelComplete, onGameOver]);
+
+  return (
+    <div className="bg-white rounded-2xl shadow-2xl overflow-hidden">
+      <canvas
+        ref={canvasRef}
+        width={dimensions.width}
+        height={dimensions.height}
+        className="w-full h-auto"
+      />
+    </div>
+  );
+}
